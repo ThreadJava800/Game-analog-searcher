@@ -4,6 +4,7 @@ import json
 import datetime
 import requests
 import backend
+import json
 
 app = Flask(__name__)
 cf_port = os.getenv("PORT")
@@ -18,16 +19,24 @@ def bot():
     income_request = json.loads(request.get_data())
     memory = income_request['conversation']['memory']
     game = memory['games']['raw']
-    text = backend.find_game(game)
+    games = backend.find_game(game)
+    answer = list()
+    for val in games:
+        answer.append(
+            json.dumps({
+                'Name': val.name,
+                'Developer': val.developer,
+                'Minimum': val.minimum,
+                'Recommended': val.recommended
+            })
+        )
     return jsonify(
         status=200,
         replies=[
             {
                 'type': 'text',
                 'content': {
-                        'Name': text['name'],
-                        'Minimum': text['win_minimum'],
-                        'Recommended': text['win_recommended']
+                        '': answer
                 }
             }
         ],
