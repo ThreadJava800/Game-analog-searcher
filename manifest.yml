@@ -1,4 +1,4 @@
 applications:
 - name: sap-computershop
   memory: 128M
-  command: python chatbot-webhook-test.py
+  command: python chatbot-webhook.py

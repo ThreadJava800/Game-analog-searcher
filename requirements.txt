@@ -4,4 +4,3 @@ xlrd==1.2.0
 pandas
 translate
 numpy
-json

@@ -3,13 +3,15 @@ import numpy as np
 from difflib import SequenceMatcher
 from translate import Translator
 import ast
+import pathlib
 
 
 
 class Game:
-  def __init__(self, name: str, developer: str, minimum: str, recommended: str):
+  def __init__(self, name: str, developer: str, publisher: str, minimum: str, recommended: str):
     self.name = name
     self.developer = developer
+    self.publisher = publisher
     self.minimum = minimum
     self.recommended = recommended
 
@@ -21,31 +23,27 @@ games = pd.DataFrame()
 processors = pd.DataFrame()
 videocards = pd.DataFrame()
 assemblies = pd.DataFrame()
-priored_developers = ['Ubisoft', 'Valve', 'CD PROJEKT RED']
+priored_developers = ['Ubisoft', 'Valve', 'CD PROJEKT RED', 'Bungie']
+priored_publishers = ['Electronic Arts']
 
 
 def __read_games_dataset__():
     global games
     if games.empty:
-        games = pd.read_excel('D:/Projects/WEB/sap_chatbot/chatbot-webhook/static/games.xlsx')
+        games = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/games.xlsx')
 
 
-def __read_processors_dataset__():
-    global processors
+def __read_all_datasets__():
+    global games, processors, videocards, assemblies
+    if games.empty:
+        games = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/games.xlsx')
     if processors.empty:
-        processors = pd.read_excel('D:/Projects/WEB/sap_chatbot/chatbot-webhook/static/proccessors.xlsx')
-
-    
-def __read_videocards_dataset__():
-    global videocards
+        processors = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/proccessors.xlsx')
     if videocards.empty:
-        videocards = pd.read_excel('D:/Projects/WEB/sap_chatbot/chatbot-webhook/static/videocards.xlsx')
-
-
-def __read_assemblies_dataset__():
-    global assemblies
+        videocards = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/videocards.xlsx')
     if assemblies.empty:
-        assemblies = pd.read_excel('D:/Projects/WEB/sap_chatbot/chatbot-webhook/static/assemblies.xlsx')
+        assemblies = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/assemblies.xlsx')
+
 
 
 def find_game(game_name):
@@ -54,22 +52,27 @@ def find_game(game_name):
             return games.iloc[i]
 
 
-def get_assembly(game_name):
-    __read_games_dataset__()
-    __read_processors_dataset__()
-    __read_videocards_dataset__()
-    __read_assemblies_dataset__()
+def get_assembly(game_name, given_graphics):
+    __read_all_datasets__()
+
+    graphics = None
+    if given_graphics.find('высок') != -1:
+        graphics = 'win_recommended'
+    elif given_graphics.find('низк') != -1:
+        graphics = 'win_minimum'
+    else:
+        raise ValueError()
 
     game = games.iloc[list(games['name']).index(game_name)]
     processor_names, videocard_names = list(processors['name']), list(videocards['Name'])
     max_coincidence = -1.0
     max_index = -1
     for i in range(len(processor_names)):
-        if ast.literal_eval(game['win_minimum'])['processor'].lower().find(processor_names[i].lower()) != -1: 
+        if ast.literal_eval(game[graphics])['processor'].lower().find(processor_names[i].lower()) != -1: 
             max_coincidence = 1.0
             max_index = i
             break
-        tmp = SequenceMatcher(lambda x: x==" ", ast.literal_eval(game['win_minimum'])['processor'].lower(), processor_names[i].lower()).ratio()
+        tmp = SequenceMatcher(lambda x: x==" ", ast.literal_eval(game[graphics])['processor'].lower(), processor_names[i].lower()).ratio()
         if max_coincidence < tmp:
             max_index = i
             max_coincidence = tmp
@@ -78,11 +81,11 @@ def get_assembly(game_name):
     max_coincidence = -1.0
     max_index = -1
     for i in range(len(videocard_names)):
-        if ast.literal_eval(game['win_minimum'])['graphics'].lower().find(videocard_names[i].lower()) != -1: 
+        if ast.literal_eval(game[graphics])['graphics'].lower().find(videocard_names[i].lower()) != -1: 
             max_coincidence = 1.0
             max_index = i
             break
-        tmp = SequenceMatcher(lambda x: x==" ", ast.literal_eval(game['win_minimum'])['graphics'].lower(), videocard_names[i].lower()).ratio()
+        tmp = SequenceMatcher(lambda x: x==" ", ast.literal_eval(game[graphics])['graphics'].lower(), videocard_names[i].lower()).ratio()
         if max_coincidence < tmp:
             max_index = i
             max_coincidence = tmp
@@ -133,11 +136,14 @@ def game_analog_searcher(income_game):
     feedback_list = list(indexes.keys())[-50::]
     suggested_games = list()
     for i in feedback_list:
-        tmp = Game(str(games.iloc[i]['name']), str(games.iloc[i]['developer']), str(games.iloc[i]['win_minimum']), str(games.iloc[i]['win_recommended']))
+        tmp = Game(str(games.iloc[i]['name']), str(games.iloc[i]['developer']), str(games.iloc[i]['publisher']), str(games.iloc[i]['win_minimum']), str(games.iloc[i]['win_recommended']))
         if tmp not in suggested_games:
             suggested_games.append(tmp)
     for i in range(len(suggested_games)):
-        if suggested_games[i].developer in priored_developers:
+        if suggested_games[i].developer in priored_developers or suggested_games[i].publisher in priored_publishers:
             suggested_games[i], suggested_games[-1] = suggested_games[-1], suggested_games[i]
+    game_names = list()
+    for val in suggested_games:
+        game_names.append(val.name)
 
-    return suggested_games[-8::]
+    return game_names[-8::]
