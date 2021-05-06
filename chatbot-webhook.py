@@ -17,8 +17,14 @@ def default():
 def bot():
     income_request = json.loads(request.get_data())
     memory = income_request['conversation']['memory']
-    game = memory['games']['raw']
+    game = memory['games']
     games = backend.game_analog_searcher(game)
+    buttons = list()
+    for val in games:
+        buttons.append({
+            "value": str(val),
+            "title": str(val)
+        })
     return jsonify(
         status=200,
         replies=[
@@ -26,40 +32,7 @@ def bot():
                 'type': 'quickReplies',
                 'content': {
                     "title": "Пожалуйста, выберите нужную игру из списка",
-                    "buttons": [
-                    {
-                        "value": str(games[0]),
-                        "title": str(games[0])
-                    },
-                    {
-                        "value": str(games[1]),
-                        "title": str(games[1])
-                    },
-                    {
-                        "value": str(games[2]),
-                        "title": str(games[2])
-                    },
-                    {
-                        "value": str(games[3]),
-                        "title": str(games[3])
-                    },
-                    {
-                        "value": str(games[4]),
-                        "title": str(games[4])
-                    },
-                    {
-                        "value": str(games[5]),
-                        "title": str(games[5])
-                    },
-                    {
-                        "value": str(games[6]),
-                        "title": str(games[6])
-                    },
-                    {
-                        "value": str(games[7]),
-                        "title": str(games[7])
-                    }
-                    ]
+                    "buttons": buttons
                 }
             }
         ],
@@ -72,7 +45,7 @@ def bot():
 def get_assembly():
     income_request = json.loads(request.get_data())
     memory = income_request['conversation']['memory']
-    game = memory['games']['raw']
+    game = memory['games']
     graphics = memory['graphics']['raw']
     assembly = backend.get_assembly(game, graphics)
     return jsonify(

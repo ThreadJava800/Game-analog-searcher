@@ -4,25 +4,24 @@ from difflib import SequenceMatcher
 from translate import Translator
 import ast
 import pathlib
+from dataclasses import dataclass
 
 
-
+@dataclass
 class Game:
-  def __init__(self, name: str, developer: str, publisher: str, minimum: str, recommended: str):
-    self.name = name
-    self.developer = developer
-    self.publisher = publisher
-    self.minimum = minimum
-    self.recommended = recommended
-
-  def __str__(self):
-    return 'Game name: ' + self.name + '\n' + 'Developer: ' + self.developer + '\n\n'
+    name: str
+    developer: str
+    publisher: str
+    minimum: str
+    recommended: str
 
 
 games = pd.DataFrame()
-processors = pd.DataFrame()
-videocards = pd.DataFrame()
+processors = pd.DataFrame() # processors and their benchmarks
+videocards = pd.DataFrame() # GPUs and their benchmarks
 assemblies = pd.DataFrame()
+
+# used for moving games with the most popular developers to the top
 priored_developers = ['Ubisoft', 'Valve', 'CD PROJEKT RED', 'Bungie']
 priored_publishers = ['Electronic Arts']
 
@@ -46,32 +45,32 @@ def __read_all_datasets__():
 
 
 
-def find_game(game_name):
-    for i in range(len(games)):
-        if games.iloc[i]['name'] == game_name:
-            return games.iloc[i]
-
-
 def get_assembly(game_name, given_graphics):
     __read_all_datasets__()
 
+    # getting needed graphics
     graphics = None
     if given_graphics.find('высок') != -1:
         graphics = 'win_recommended'
     elif given_graphics.find('низк') != -1:
         graphics = 'win_minimum'
     else:
+        # TODO: add other cases
         raise ValueError()
 
+    # TODO: make a check on games with similar names
     game = games.iloc[list(games['name']).index(game_name)]
     processor_names, videocard_names = list(processors['name']), list(videocards['Name'])
     max_coincidence = -1.0
     max_index = -1
     for i in range(len(processor_names)):
+        # if we found processor name in game requirements string
         if ast.literal_eval(game[graphics])['processor'].lower().find(processor_names[i].lower()) != -1: 
             max_coincidence = 1.0
             max_index = i
             break
+
+        # getting percentage of coincidence
         tmp = SequenceMatcher(lambda x: x==" ", ast.literal_eval(game[graphics])['processor'].lower(), processor_names[i].lower()).ratio()
         if max_coincidence < tmp:
             max_index = i
@@ -81,17 +80,23 @@ def get_assembly(game_name, given_graphics):
     max_coincidence = -1.0
     max_index = -1
     for i in range(len(videocard_names)):
+        # if we found videocard name in game requirements string
         if ast.literal_eval(game[graphics])['graphics'].lower().find(videocard_names[i].lower()) != -1: 
             max_coincidence = 1.0
             max_index = i
             break
+
+        # getting percentage of coincidence
         tmp = SequenceMatcher(lambda x: x==" ", ast.literal_eval(game[graphics])['graphics'].lower(), videocard_names[i].lower()).ratio()
         if max_coincidence < tmp:
             max_index = i
             max_coincidence = tmp
     ideal_videocard = videocard_names[max_index]
+
+    # getting benchmark of assembly asked in the requirements
     ideal_assembly_rating = float(videocards.iloc[list(videocards['Name']).index(ideal_videocard)]['Rating']) + float(processors.iloc[list(processors['name']).index(ideal_processor)]['rating'])
 
+    # getting assembly (available at the shop) closest ideal one
     min_difference = max(list(assemblies['rating']))
     ans_assembly_index = -1
     for i in range(len(assemblies)):
@@ -112,38 +117,49 @@ def game_analog_searcher(income_game):
     __read_games_dataset__()
 
     # translating game`s name if it was given in Russian
+    # translating cyrillics to latin works worse, trust me)
     translator = Translator(from_lang='ru', to_lang='en')
     game = translator.translate(str(income_game))
 
     names = np.array(games['name']) # an array containing only game names
-    indexes = dict()
+    indexes = dict() # a dict containing game name and its coincidence to a given one
     for i in range(len(names)):
         indexes[i] = -1.0
     for i in range(len(names)):
         try:
             try:
+                # if game was given right like in steam
                 if names[i].lower().find(game.lower()) != -1: 
                     indexes[i] = 1.0
                     continue
             except AttributeError:
                 pass
+
+            # getting percentage of coincidence
             tmp = SequenceMatcher(lambda x: x==" ", game, names[i]).ratio()
             indexes[i] = tmp
         except TypeError:
             pass
+
+    # sorting dictionary  by coincidence value
     indexes = dict(sorted(indexes.items(), key=lambda item: item[1]))
 
+    # slicing 50 first games with max coincidence to a given game
     feedback_list = list(indexes.keys())[-50::]
     suggested_games = list()
     for i in feedback_list:
         tmp = Game(str(games.iloc[i]['name']), str(games.iloc[i]['developer']), str(games.iloc[i]['publisher']), str(games.iloc[i]['win_minimum']), str(games.iloc[i]['win_recommended']))
         if tmp not in suggested_games:
             suggested_games.append(tmp)
+
+    # if game with priored developer was found then move it to the top
     for i in range(len(suggested_games)):
         if suggested_games[i].developer in priored_developers or suggested_games[i].publisher in priored_publishers:
             suggested_games[i], suggested_games[-1] = suggested_games[-1], suggested_games[i]
+
     game_names = list()
     for val in suggested_games:
         game_names.append(val.name)
 
+    # do not return a slice with more than 10 values!!!
     return game_names[-8::]
