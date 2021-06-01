@@ -46,9 +46,10 @@ def bot():
 def get_assembly():
     income_request = json.loads(request.get_data())
     memory = income_request['conversation']['memory']
-    game = memory['games']
+    game = memory['games']['raw']
     graphics = memory['graphics']['raw']
     assembly = backend.get_assembly(game, graphics)
+    memory['assembly'] = assembly['name']
     return jsonify(
         status=200,
         replies=[
@@ -72,8 +73,9 @@ def get_assembly():
 @app.route('/create_order', methods=['POST'])
 def create_order():
     income_request = json.loads(request.get_data())
-    chosen_assembly = income_request['messages'][0]['content']
-    backend.make_order(chosen_assembly)
+    memory = income_request['conversation']['memory']
+    backend.make_order(str(memory['assembly']), str(memory['name']['raw']), str(memory['address']['raw']),
+                       str(memory['email']['raw']))
     return jsonify(
         status=200,
         replies=[],

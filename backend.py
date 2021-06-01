@@ -29,17 +29,23 @@ BASE_DIR = os.path.join(pathlib.Path(__file__).resolve().parent.parent, 'Game-an
 FIREBASE_OBJECT = None
 
 # used for moving games with the most popular developers to the top
-priored_developers = ['Ubisoft', 'Valve', 'CD PROJEKT RED', 'Bungie']
+priored_developers = ['Ubisoft', 'Valve', 'CD PROJEKT RED', 'Bungie', 'Electronic Arts']
 priored_publishers = ['Electronic Arts']
 
 
-def __read_games_dataset__():
+def __read_games_dataset__() -> None:
     global games
     if games.empty:
         games = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/games.xlsx')
 
 
-def __read_all_datasets__():
+def __read_assembly_dataset__() -> None:
+    global assemblies
+    if assemblies.empty:
+        assemblies = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/assemblies.xlsx')
+
+
+def __read_all_datasets__() -> None:
     global games, processors, videocards, assemblies
     if games.empty:
         games = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/games.xlsx')
@@ -120,14 +126,15 @@ def get_assembly(game_name, given_graphics):
     return assemblies.iloc[ans_assembly_index]
 
 
-def game_analog_searcher(income_game):
+def game_analog_searcher(income_game) -> list:
     """
     Returns games with similar name and their requirements
     """
+
     __read_games_dataset__()
 
     # translating game`s name if it was given in Russian
-    # translating Cyrillic's to latin works worse, trust me)
+    # translating cyrillics to latin works worse, trust me)
     translator = Translator(from_lang='ru', to_lang='en')
     game = translator.translate(str(income_game))
 
@@ -151,11 +158,12 @@ def game_analog_searcher(income_game):
         except TypeError:
             pass
 
-    # sorting dictionary  by coincidence value
+    # sorting dictionary by coincidence value
     indexes = dict(sorted(indexes.items(), key=lambda item: item[1]))
 
     # slicing 50 first games with max coincidence to a given game
     feedback_list = list(indexes.keys())[-50::]
+    tempa = list(indexes.items())[-50::]
     suggested_games = list()
     for i in feedback_list:
         tmp = Game(str(games.iloc[i]['name']), str(games.iloc[i]['developer']), str(games.iloc[i]['publisher']),
@@ -176,7 +184,7 @@ def game_analog_searcher(income_game):
     return game_names[-8::]
 
 
-def init_firebase():
+def init_firebase() -> None:
     global FIREBASE_OBJECT
     if FIREBASE_OBJECT is None:
         cred_object = firebase_admin.credentials.Certificate(
@@ -186,9 +194,28 @@ def init_firebase():
         })
 
 
-def make_order(assembly_dict):
+def get_last_order_id() -> int:
+    max_order_id = 0
+    snapshot = db.reference('').get()
+    for order_type in snapshot:
+        if order_type == "active_orders" or order_type == "done_orders":
+            for order in snapshot[order_type]:
+                max_order_id = max(max_order_id, int(snapshot[order_type][order]['id']))
+    return max_order_id
+
+
+def make_order(assembly: str, name: str, address: str, email: str) -> None:
     init_firebase()
+    __read_assembly_dataset__()
+    order = dict()
+    for i in range(len(assemblies)):
+        if assemblies.iloc[i]['name'] == assembly:
+            order = dict(assemblies.iloc[i])
+            break
     reference = db.reference('active_orders')
-    assembly_dict['id'] = '2'
-    push = reference.push(assembly_dict)
-    print(len(push.key))
+    order['id'] = get_last_order_id() + 1
+    order['name'] = name
+    order['address'] = address
+    order['email'] = email
+    print(order)
+    reference.push(order)
