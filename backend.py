@@ -33,18 +33,36 @@ priored_publishers = ['Electronic Arts']
 
 
 def __read_games_dataset__() -> None:
+    """
+    Reads games dataset.
+
+    :return: None
+    """
+
     global games
     if games.empty:
         games = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/games.xlsx')
 
 
 def __read_assembly_dataset__() -> None:
+    """
+    Reads assembly dataset.
+
+    :return: None
+    """
+
     global assemblies
     if assemblies.empty:
         assemblies = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/assemblies.xlsx')
 
 
 def __read_all_datasets__() -> None:
+    """
+    Reads all datasets.
+
+    :return: None
+    """
+
     global games, processors, videocards, assemblies
     if games.empty:
         games = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/games.xlsx')
@@ -57,6 +75,14 @@ def __read_all_datasets__() -> None:
 
 
 def get_assembly(game_name, given_graphics):
+    """
+    Searches the most suitable dataset according to a wanted game and graphics.
+
+    :param game_name: Game name
+    :param given_graphics: Requested graphics
+    :return: pandas.core.frame.DataFrame
+    """
+
     __read_all_datasets__()
 
     # getting needed graphics
@@ -127,7 +153,10 @@ def get_assembly(game_name, given_graphics):
 
 def game_analog_searcher(income_game) -> list:
     """
-    Returns games with similar name and their requirements
+    Return names of the most similar game to a given one (see :param income_game).
+
+    :param income_game: Given game name (free formulation)
+    :return: list
     """
 
     __read_games_dataset__()
@@ -184,16 +213,28 @@ def game_analog_searcher(income_game) -> list:
 
 
 def init_firebase() -> None:
+    """
+    Initializes firebase if it is not already initialized.
+
+    :return: None
+    """
+
     global FIREBASE_OBJECT
     if FIREBASE_OBJECT is None:
         cred_object = firebase_admin.credentials.Certificate(
             os.path.join(str(pathlib.Path(__file__).parent.absolute()) + '/static/firebase_credentials.json'))
         FIREBASE_OBJECT = firebase_admin.initialize_app(cred_object, {
-            'databaseURL': 'https://computershop-3bc7d-default-rtdb.europe-west1.firebasedatabase.app/'
+            'databaseURL': 'YOUR_DB_URL'
         })
 
 
 def get_last_order_id() -> int:
+    """
+    Return last order id.
+
+    :return: int
+    """
+
     max_order_id = 0
     snapshot = db.reference('').get()
     if snapshot is None:
@@ -206,6 +247,12 @@ def get_last_order_id() -> int:
 
 
 def get_last_pretense_id() -> int:
+    """
+    Returns last pretense in database id.
+
+    :return: int
+    """
+
     max_pretense_id = 0
     snapshot = db.reference('').get()
     if snapshot is None:
@@ -218,6 +265,14 @@ def get_last_pretense_id() -> int:
 
 
 def get_order_by_id(order_id: int) -> dict:
+    """
+    Returns a dict with info of order.
+
+    :param order_id: ID of an order
+    :type order_id: int
+    :return: dict
+    """
+
     snapshot = db.reference('').get()
     if snapshot is None:
         return {}
@@ -232,6 +287,14 @@ def get_order_by_id(order_id: int) -> dict:
 
 
 def get_pretense_by_id(pretense_id: int) -> dict:
+    """
+    Returns a dict with info of pretense.
+
+    :param pretense_id: ID of a pretense
+    :type pretense_id: int
+    :return: dict
+    """
+
     snapshot = db.reference('').get()
     if snapshot is None:
         return {}
@@ -246,6 +309,14 @@ def get_pretense_by_id(pretense_id: int) -> dict:
 
 
 def get_assembly_by_name(assembly_name: str) -> dict:
+    """
+    Returns a dict with info of assembly.
+
+    :param assembly_name: Name of assembly
+    :type assembly_name: str
+    :return: dict
+    """
+
     __read_assembly_dataset__()
     for i in range(len(assemblies)):
         if assemblies.iloc[i]['name'] == assembly_name:
@@ -254,6 +325,23 @@ def get_assembly_by_name(assembly_name: str) -> dict:
 
 
 def make_order(assembly: str, name: str, address: str, email: str) -> dict:
+    """
+    Creates an order in database and returns a dict with order ID.
+
+    :param assembly: Name of assembly
+    :type assembly: str
+
+    :param name: Name of a client
+    :type name: str
+
+    :param address: Home address of a client
+    :type address: str
+
+    :param email: Email address of a client
+    :type email: str
+    :return: dict
+    """
+
     init_firebase()
     reference = db.reference('active_orders')
     order = dict()
@@ -267,6 +355,14 @@ def make_order(assembly: str, name: str, address: str, email: str) -> dict:
 
 
 def get_order_status(order_id: str) -> dict:
+    """
+    Returns info about order by its ID.
+
+    :param order_id: An ID of order
+    :type order_id: str
+    :return: dict
+    """
+
     init_firebase()
     search_id = int(order_id[4::])
     order = get_order_by_id(search_id)
@@ -284,6 +380,20 @@ def get_order_status(order_id: str) -> dict:
 
 
 def create_pretense(name: str, email: str, pretense_text: str) -> dict:
+    """
+    Creates a pretense in database and returns a dict with pretense ID.
+
+    :param name: Name of a client
+    :type name: str
+
+    :param email: Email address of a client
+    :type email: str
+
+    :param pretense_text: Text of pretense
+    :type pretense_text: str
+    :return: dict
+    """
+
     init_firebase()
     reference = db.reference('active_pretenses')
     pretense = dict()
@@ -296,6 +406,14 @@ def create_pretense(name: str, email: str, pretense_text: str) -> dict:
 
 
 def get_pretense_status(pretense_id: str) -> dict:
+    """
+    Returns info about pretense by its ID.
+
+    :param pretense_id: ID of pretense
+    :type pretense_id: str
+    :return: dict
+    """
+
     init_firebase()
     search_id = int(pretense_id[4::])
     pretense = get_pretense_by_id(search_id)
