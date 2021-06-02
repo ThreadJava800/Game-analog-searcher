@@ -1,4 +1,4 @@
 __pycache__
-firebase_credentials.json
+static/firebase_credentials.json
 venv
 .idea

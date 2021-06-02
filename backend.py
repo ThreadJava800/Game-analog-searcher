@@ -25,7 +25,6 @@ processors = pd.DataFrame()  # processors and their benchmarks
 videocards = pd.DataFrame()  # GPUs and their benchmarks
 assemblies = pd.DataFrame()
 
-BASE_DIR = os.path.join(pathlib.Path(__file__).resolve().parent.parent, 'Game-analog-searcher')
 FIREBASE_OBJECT = None
 
 # used for moving games with the most popular developers to the top
@@ -188,7 +187,7 @@ def init_firebase() -> None:
     global FIREBASE_OBJECT
     if FIREBASE_OBJECT is None:
         cred_object = firebase_admin.credentials.Certificate(
-            os.path.join(BASE_DIR, 'firebase_credentials.json'))
+            os.path.join(str(pathlib.Path(__file__).parent.absolute()) + '/static/firebase_credentials.json'))
         FIREBASE_OBJECT = firebase_admin.initialize_app(cred_object, {
             'databaseURL': 'https://computershop-3bc7d-default-rtdb.europe-west1.firebasedatabase.app/'
         })
@@ -197,6 +196,8 @@ def init_firebase() -> None:
 def get_last_order_id() -> int:
     max_order_id = 0
     snapshot = db.reference('').get()
+    if snapshot is None:
+        return 0
     for order_type in snapshot:
         if order_type == "active_orders" or order_type == "done_orders":
             for order in snapshot[order_type]:
@@ -204,18 +205,108 @@ def get_last_order_id() -> int:
     return max_order_id
 
 
-def make_order(assembly: str, name: str, address: str, email: str) -> None:
-    init_firebase()
+def get_last_pretense_id() -> int:
+    max_pretense_id = 0
+    snapshot = db.reference('').get()
+    if snapshot is None:
+        return 0
+    for order_type in snapshot:
+        if order_type == "active_pretenses" or order_type == "done_pretenses":
+            for order in snapshot[order_type]:
+                max_pretense_id = max(max_pretense_id, int(snapshot[order_type][order]['id']))
+    return max_pretense_id
+
+
+def get_order_by_id(order_id: int) -> dict:
+    snapshot = db.reference('').get()
+    if snapshot is None:
+        return {}
+    for order_type in snapshot:
+        if order_type == "active_orders" or order_type == "done_orders":
+            for order in snapshot[order_type]:
+                possible_order = snapshot[order_type][order]
+                if possible_order['id'] == order_id:
+                    possible_order['order_type'] = order_type
+                    return possible_order
+    return {}
+
+
+def get_pretense_by_id(pretense_id: int) -> dict:
+    snapshot = db.reference('').get()
+    if snapshot is None:
+        return {}
+    for pretense_type in snapshot:
+        if pretense_type == "active_pretenses" or pretense_type == "done_pretenses":
+            for pretense in snapshot[pretense_type]:
+                possible_pretense = snapshot[pretense_type][pretense]
+                if possible_pretense['id'] == pretense_id:
+                    possible_pretense['pretense_type'] = pretense_type
+                    return possible_pretense
+    return {}
+
+
+def get_assembly_by_name(assembly_name: str) -> dict:
     __read_assembly_dataset__()
-    order = dict()
     for i in range(len(assemblies)):
-        if assemblies.iloc[i]['name'] == assembly:
-            order = dict(assemblies.iloc[i])
-            break
+        if assemblies.iloc[i]['name'] == assembly_name:
+            return dict(assemblies.iloc[i])
+    return {}
+
+
+def make_order(assembly: str, name: str, address: str, email: str) -> dict:
+    init_firebase()
     reference = db.reference('active_orders')
+    order = dict()
     order['id'] = get_last_order_id() + 1
     order['name'] = name
     order['address'] = address
     order['email'] = email
-    print(order)
+    order['assembly'] = assembly
     reference.push(order)
+    return {'ID заказа': f'FFF-{order["id"]}'}
+
+
+def get_order_status(order_id: str) -> dict:
+    init_firebase()
+    search_id = int(order_id[4::])
+    order = get_order_by_id(search_id)
+    user_info = dict()
+    if order == {}:
+        user_info['status'] = "Заказ не найден!"
+        user_info['assembly'] = ""
+    else:
+        user_info['assembly'] = order['assembly']
+        if order['order_type'] == "active_orders":
+            user_info['status'] = "Выполняется"
+        if order['order_type'] == "done_orders":
+            user_info['status'] = "Выполнен"
+    return user_info
+
+
+def create_pretense(name: str, email: str, pretense_text: str) -> dict:
+    init_firebase()
+    reference = db.reference('active_pretenses')
+    pretense = dict()
+    pretense['id'] = get_last_pretense_id() + 1
+    pretense['name'] = name
+    pretense['email'] = email
+    pretense['pretense'] = pretense_text
+    reference.push(pretense)
+    return {'ID претензии': f'ZZZ-{pretense["id"]}'}
+
+
+def get_pretense_status(pretense_id: str) -> dict:
+    init_firebase()
+    search_id = int(pretense_id[4::])
+    pretense = get_pretense_by_id(search_id)
+    user_pretense = dict()
+    if pretense == {}:
+        user_pretense['status'] = "Жалоба не найдена!"
+        user_pretense['pretense'] = ""
+    else:
+        user_pretense['pretense'] = pretense['pretense']
+        if pretense['pretense_type'] == "active_pretenses":
+            user_pretense['status'] = "Жалоба рассматривается. Ответ придёт вам на почту."
+        if pretense['pretense_type'] == "done_pretenses":
+            user_pretense['status'] = "Жалоба рассмотрена. Проверьте почту."
+    return user_pretense

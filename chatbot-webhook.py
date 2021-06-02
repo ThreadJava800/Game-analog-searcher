@@ -74,13 +74,76 @@ def get_assembly():
 def create_order():
     income_request = json.loads(request.get_data())
     memory = income_request['conversation']['memory']
-    backend.make_order(str(memory['assembly']), str(memory['name']['raw']), str(memory['address']['raw']),
-                       str(memory['email']['raw']))
+    answer = backend.make_order(str(memory['assembly']), str(memory['name']['raw']), str(memory['address']['raw']),
+                                str(memory['email']['raw']))
     return jsonify(
         status=200,
-        replies=[],
+        replies=[
+            {
+                'type': 'text',
+                'content': answer,
+            }
+        ],
         conversation={
-            'memory': income_request
+            'memory': memory
+        }
+    )
+
+
+@app.route('/get_order', methods=['POST'])
+def get_order():
+    income_request = json.loads(request.get_data())
+    memory = income_request['conversation']['memory']
+    answer = backend.get_order_status(str(memory['order_id']['raw']))
+    return jsonify(
+        status=200,
+        replies=[
+            {
+                'type': 'text',
+                'content': answer,
+            }
+        ],
+        conversation={
+            'memory': memory
+        }
+    )
+
+
+@app.route('/create_pretense', methods=['POST'])
+def create_pretense():
+    income_request = json.loads(request.get_data())
+    memory = income_request['conversation']['memory']
+    answer = backend.create_pretense(str(memory['name']['raw']), str(memory['email']['raw']),
+                                     str(memory['pretense']['raw']))
+    return jsonify(
+        status=200,
+        replies=[
+            {
+                'type': 'text',
+                'content': answer,
+            }
+        ],
+        conversation={
+            'memory': memory
+        }
+    )
+
+
+@app.route('/get_pretense', methods=['POST'])
+def get_pretense():
+    income_request = json.loads(request.get_data())
+    memory = income_request['conversation']['memory']
+    answer = backend.get_pretense_status(str(memory['pretense_id']['raw']))
+    return jsonify(
+        status=200,
+        replies=[
+            {
+                'type': 'text',
+                'content': answer,
+            }
+        ],
+        conversation={
+            'memory': memory
         }
     )
 
