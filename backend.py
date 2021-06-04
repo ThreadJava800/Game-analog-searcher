@@ -248,6 +248,26 @@ def game_analog_searcher(income_game) -> list:
     return game_names[-8::]
 
 
+def get_hardware_data_by_name(hardware_list: pd.DataFrame, name: str) -> dict:
+    """
+    Returns type of hardware and possible name of it.
+
+    :param hardware_list: Dataframe with all hardware
+    :type hardware_list: pd.DataFrame
+
+    :param name: Given hardware (free formulation)
+    :type name: str
+    :return: dict
+    """
+
+    hardware = dict()
+    for i in range(len(hardware_list)):
+        if hardware_list.iloc[i]['name'] == name:
+            hardware = dict(hardware_list.iloc[i])
+            break
+    return hardware
+
+
 def get_hardware_type(hardware: str) -> dict:
     """
     Returns type of hardware and possible name of it.
@@ -275,14 +295,16 @@ def get_hardware_type(hardware: str) -> dict:
     # translator = Translator(from_lang='ru', to_lang='en')
     # given_hardware = translator.translate(str(hardware))
     try:
-        given_hardware = transliterate.translit(str(hardware))
+        given_hardware = transliterate.translit(str(hardware), 'ru', reversed=True)
     except LanguageDetectionError:
         given_hardware = hardware
-    print(given_hardware)
     names = np.concatenate((np.array(videocards['Name']), np.array(processors['name'])),
                            axis=None)  # an array containing only hardware names
     indexes = search_similar_names(names, given_hardware)
+    possible_hardware = get_hardware_data_by_name(all_hardware, names[list(indexes.keys())[-1]])
 
+    # Алгоритм можно доработать, но и с этим жить можно. Наработки ниже
+    """
     # slicing 50 first games with max coincidence to a given game
     feedback_list = list(indexes.keys())
     suggested_hardware = list()
@@ -303,9 +325,11 @@ def get_hardware_type(hardware: str) -> dict:
     hardware_names = list()
     for val in suggested_hardware:
         hardware_names.append(val.name)
+    """
+
     return {
-        'hardware_type': 'test',
-        'hardware_name': hardware_names,
+        'hardware_type': possible_hardware['type'],
+        'hardware_name': possible_hardware['name'],
     }
 
 
