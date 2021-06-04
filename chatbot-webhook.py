@@ -148,6 +148,26 @@ def get_pretense():
     )
 
 
+@app.route('/get_hardware', methods=['POST'])
+def get_hardware_type():
+    income_request = json.loads(request.get_data())
+    memory = income_request['conversation']['memory']
+    answer = backend.get_hardware_type(str(memory['object']['raw']))
+    memory['hardware_type'] = answer['hardware_type']
+    return jsonify(
+        status=200,
+        replies=[
+            {
+                'type': 'text',
+                'content': answer['hardware_name'],
+            }
+        ],
+        conversation={
+            'memory': memory
+        }
+    )
+
+
 if __name__ == '__main__':
     if cf_port is None:
         app.run(host='0.0.0.0', port=5000, debug=True)

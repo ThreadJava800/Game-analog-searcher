@@ -1,7 +1,8 @@
-Flask
+Flask~=2.0.1
 requests
 xlrd==1.2.0
-pandas
-translate
-numpy
+pandas~=1.2.4
+translate~=3.5.0
+numpy~=1.20.3
 firebase_admin
+transliterate~=1.10.2

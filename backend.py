@@ -9,6 +9,8 @@ import pathlib
 from dataclasses import dataclass
 import firebase_admin
 from firebase_admin import db
+import transliterate
+from transliterate.exceptions import LanguageDetectionError
 
 
 @dataclass
@@ -18,6 +20,12 @@ class Game:
     publisher: str
     minimum: str
     recommended: str
+
+
+@dataclass
+class Hardware:
+    name: str
+    type: str
 
 
 games = pd.DataFrame()
@@ -72,6 +80,20 @@ def __read_all_datasets__() -> None:
         videocards = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/videocards.xlsx')
     if assemblies.empty:
         assemblies = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/assemblies.xlsx')
+
+
+def __read_hardware_datasets__() -> None:
+    """
+    Reads processor and GPU dataset.
+
+    :return: None
+    """
+
+    global processors, videocards
+    if processors.empty:
+        processors = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/proccessors.xlsx')
+    if videocards.empty:
+        videocards = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/videocards.xlsx')
 
 
 def get_assembly(game_name, given_graphics):
@@ -151,6 +173,41 @@ def get_assembly(game_name, given_graphics):
     return assemblies.iloc[ans_assembly_index]
 
 
+def search_similar_names(names: np.array, given_name: str) -> dict:
+    """
+    Returns a dict with names and a percentage of similarity to a :param given_name.
+
+    :param names: Array of possible names
+    :type names: np.array
+
+    :param given_name: A given name
+    :type given_name: str
+    :return: dict
+    """
+
+    indexes = dict()  # a dict containing game name and its coincidence to a given one
+    for i in range(len(names)):
+        indexes[i] = -1.0
+    for i in range(len(names)):
+        try:
+            try:
+                # if game was given right like in steam
+                if names[i].lower().find(given_name.lower()) != -1:
+                    indexes[i] = 1.0
+                    continue
+            except AttributeError:
+                pass
+
+            # getting percentage of coincidence
+            tmp = SequenceMatcher(lambda x: x == " ", given_name, names[i]).ratio()
+            indexes[i] = tmp
+        except TypeError:
+            pass
+
+    # sorting dictionary by coincidence value
+    return dict(sorted(indexes.items(), key=lambda item: item[1]))
+
+
 def game_analog_searcher(income_game) -> list:
     """
     Return names of the most similar game to a given one (see :param income_game).
@@ -167,31 +224,10 @@ def game_analog_searcher(income_game) -> list:
     game = translator.translate(str(income_game))
 
     names = np.array(games['name'])  # an array containing only game names
-    indexes = dict()  # a dict containing game name and its coincidence to a given one
-    for i in range(len(names)):
-        indexes[i] = -1.0
-    for i in range(len(names)):
-        try:
-            try:
-                # if game was given right like in steam
-                if names[i].lower().find(game.lower()) != -1:
-                    indexes[i] = 1.0
-                    continue
-            except AttributeError:
-                pass
-
-            # getting percentage of coincidence
-            tmp = SequenceMatcher(lambda x: x == " ", game, names[i]).ratio()
-            indexes[i] = tmp
-        except TypeError:
-            pass
-
-    # sorting dictionary by coincidence value
-    indexes = dict(sorted(indexes.items(), key=lambda item: item[1]))
+    indexes = search_similar_names(names, game)
 
     # slicing 50 first games with max coincidence to a given game
     feedback_list = list(indexes.keys())[-50::]
-    tempa = list(indexes.items())[-50::]
     suggested_games = list()
     for i in feedback_list:
         tmp = Game(str(games.iloc[i]['name']), str(games.iloc[i]['developer']), str(games.iloc[i]['publisher']),
@@ -212,6 +248,67 @@ def game_analog_searcher(income_game) -> list:
     return game_names[-8::]
 
 
+def get_hardware_type(hardware: str) -> dict:
+    """
+    Returns type of hardware and possible name of it.
+
+    :param hardware: Given hardware (free formulation)
+    :type hardware: str
+    :return: dict
+    """
+
+    __read_hardware_datasets__()
+    # Creating a dataframe of all hardware we have
+    vid_result = {}
+    proc_result = {}
+    for i in range(len(videocards)):
+        vid_result['name'] = videocards['Name']
+        vid_result['rating'] = videocards['Rating']
+        vid_result['type'] = 'Videocard'
+    for i in range(len(processors)):
+        proc_result['name'] = processors['name']
+        proc_result['rating'] = processors['rating']
+        proc_result['type'] = 'Processor'
+    all_hardware = pd.concat([pd.DataFrame.from_dict(proc_result), pd.DataFrame.from_dict(vid_result)],
+                             ignore_index=True, sort=False)
+
+    # translator = Translator(from_lang='ru', to_lang='en')
+    # given_hardware = translator.translate(str(hardware))
+    try:
+        given_hardware = transliterate.translit(str(hardware))
+    except LanguageDetectionError:
+        given_hardware = hardware
+    print(given_hardware)
+    names = np.concatenate((np.array(videocards['Name']), np.array(processors['name'])),
+                           axis=None)  # an array containing only hardware names
+    indexes = search_similar_names(names, given_hardware)
+
+    # slicing 50 first games with max coincidence to a given game
+    feedback_list = list(indexes.keys())
+    suggested_hardware = list()
+    for i in feedback_list:
+        tmp = Hardware(str(all_hardware.iloc[i]['name']), str(all_hardware.iloc[i]['type']))
+        if tmp not in suggested_hardware:
+            suggested_hardware.append(tmp)
+
+    # if game with priored developer was found then move it to the top
+    numbers = [int(s) for s in given_hardware.split() if s.isdigit()]
+    print(numbers)
+    for i in range(len(suggested_hardware)):
+        for number in numbers:
+            if all_hardware.iloc[i]['name'].find(str(number)):
+                suggested_hardware[i], suggested_hardware[-1] = suggested_hardware[-1], suggested_hardware[i]
+                break
+
+    hardware_names = list()
+    for val in suggested_hardware:
+        hardware_names.append(val.name)
+    return {
+        'hardware_type': 'test',
+        'hardware_name': hardware_names,
+    }
+
+
 def init_firebase() -> None:
     """
     Initializes firebase if it is not already initialized.
@@ -224,7 +321,7 @@ def init_firebase() -> None:
         cred_object = firebase_admin.credentials.Certificate(
             os.path.join(str(pathlib.Path(__file__).parent.absolute()) + '/static/firebase_credentials.json'))
         FIREBASE_OBJECT = firebase_admin.initialize_app(cred_object, {
-            'databaseURL': 'YOUR_DB_URL'
+            'databaseURL': 'https://computershop-3bc7d-default-rtdb.europe-west1.firebasedatabase.app/'
         })
 
 
