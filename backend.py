@@ -499,7 +499,7 @@ def make_order(assembly: str, name: str, address: str, email: str) -> dict:
     order['email'] = email
     order['assembly'] = assembly
     reference.push(order)
-    return {'ID заказа': f'FFF-{order["id"]}'}
+    return f'FFF-{order["id"]}'
 
 
 def get_order_status(order_id: str) -> dict:
@@ -550,7 +550,7 @@ def create_pretense(name: str, email: str, pretense_text: str) -> dict:
     pretense['email'] = email
     pretense['pretense'] = pretense_text
     reference.push(pretense)
-    return {'ID претензии': f'ZZZ-{pretense["id"]}'}
+    return f'ZZZ-{pretense["id"]}'
 
 
 def get_pretense_status(pretense_id: str) -> dict:

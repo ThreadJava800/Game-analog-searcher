@@ -64,14 +64,15 @@ def get_assembly():
         status=200,
         replies=[
             {
-                'type': 'text',
-                'content': {
-                    'Name': assembly['name'],
-                    'Processor': assembly['processor'],
-                    'Memory': assembly['memory'],
-                    'Price': str(assembly['price']),
-                    'Graphics': assembly['graphics']
-                }
+                'type': 'carousel',
+                'content': [
+                    {
+                        "title": assembly['name'],
+                        "subtitle": f"Цена: {assembly['price']}",
+                        "imageUrl": assembly['url'],
+                        "buttons": []
+                    }
+                ],
             }
         ],
         conversation={
@@ -91,7 +92,7 @@ def create_order():
         replies=[
             {
                 'type': 'text',
-                'content': answer,
+                'content': f'ID вашего заказа: {answer}',
             }
         ],
         conversation={
@@ -110,7 +111,7 @@ def get_order():
         replies=[
             {
                 'type': 'text',
-                'content': answer,
+                'content': f'Выбранная сборка: {answer["assembly"]}\nСтатус заказа: {answer["status"]}',
             }
         ],
         conversation={
@@ -130,7 +131,7 @@ def create_pretense():
         replies=[
             {
                 'type': 'text',
-                'content': answer,
+                'content': f'ID вашей претензии: {answer}',
             }
         ],
         conversation={
@@ -149,7 +150,7 @@ def get_pretense():
         replies=[
             {
                 'type': 'text',
-                'content': answer,
+                'content': f'Текст жалобы: {answer["pretense"]}\nСтатус рассмотрения жалобы: {answer["status"]}',
             }
         ],
         conversation={
