@@ -46,9 +46,19 @@ def bot():
 def get_assembly():
     income_request = json.loads(request.get_data())
     memory = income_request['conversation']['memory']
-    game = memory['games']['raw']
-    graphics = memory['graphics']['raw']
-    assembly = backend.get_assembly(game, graphics)
+    game, graphics, price, purpose = str(), str(), str(), str()
+    try:
+        game = str(memory['games']['raw'])
+        graphics = str(memory['graphics']['raw'])
+    except KeyError:
+        game = ''
+        graphics = ''
+    try:
+        purpose = memory['purpose']['raw']
+    except KeyError:
+        purpose = ''
+    price = str(memory['prices']['raw'])
+    assembly = backend.get_assembly(game, graphics, int(price), purpose)
     memory['assembly'] = assembly['name']
     return jsonify(
         status=200,
@@ -59,7 +69,7 @@ def get_assembly():
                     'Name': assembly['name'],
                     'Processor': assembly['processor'],
                     'Memory': assembly['memory'],
-                    'Price': assembly['price'],
+                    'Price': str(assembly['price']),
                     'Graphics': assembly['graphics']
                 }
             }

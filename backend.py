@@ -96,81 +96,108 @@ def __read_hardware_datasets__() -> None:
         videocards = pd.read_excel(str(pathlib.Path(__file__).parent.absolute()) + '/static/videocards.xlsx')
 
 
-def get_assembly(game_name, given_graphics):
+def get_assembly_by_price(price):
+    minimum = 10000000
+    min_assembly = int()
+    for i in range(len(assemblies)):
+        if abs(assemblies.iloc[i]['price'] - price) < minimum:
+            minimum = abs(assemblies.iloc[i]['price'] - price)
+            min_assembly = i
+    return assemblies.iloc[min_assembly]
+
+
+def get_assembly(game_name, given_graphics, price, purpose):
     """
     Searches the most suitable dataset according to a wanted game and graphics.
 
     :param game_name: Game name
     :param given_graphics: Requested graphics
+    :param price: Wanted price
+    :param purpose: For what do you need that assembly
     :return: pandas.core.frame.DataFrame
     """
 
     __read_all_datasets__()
 
-    # getting needed graphics
-    graphics = None
-    if given_graphics.find('высок') != -1:
-        graphics = 'win_recommended'
-    elif given_graphics.find('низк') != -1:
-        graphics = 'win_minimum'
+    if str(purpose).find('видеомонтаж') != -1 or str(game_name).find('видеомонтаж') != -1:
+        if int(price) > 67900:
+            return get_assembly_by_price(int(price))
+        else:
+            return assemblies.iloc[1]  # EPIX PURE
+    elif str(purpose).find('браузинг') != -1 or str(purpose).find('работ') != -1 or str(game_name).find(
+            'браузинг') != -1 or str(game_name).find('работ') != -1:
+        if int(price) > 25990:
+            return get_assembly_by_price(int(price))
+        else:
+            return assemblies.iloc[2]
     else:
-        # TODO: add other cases
-        raise ValueError()
+        # getting needed graphics
+        graphics = None
+        if given_graphics.find('высок') != -1:
+            graphics = 'win_recommended'
+        elif given_graphics.find('низк') != -1:
+            graphics = 'win_minimum'
+        else:
+            # TODO: add other cases
+            raise ValueError()
 
-    # TODO: make a check on games with similar names
-    game = games.iloc[list(games['name']).index(game_name)]
-    processor_names, videocard_names = list(processors['name']), list(videocards['Name'])
-    max_coincidence = -1.0
-    max_index = -1
-    for i in range(len(processor_names)):
-        # if we found processor name in game requirements string
-        if ast.literal_eval(game[graphics])['processor'].lower().find(processor_names[i].lower()) != -1:
-            max_coincidence = 1.0
-            max_index = i
-            break
+        # TODO: make a check on games with similar names
+        game = games.iloc[list(games['name']).index(game_name)]
+        processor_names, videocard_names = list(processors['name']), list(videocards['Name'])
+        max_coincidence = -1.0
+        max_index = -1
+        for i in range(len(processor_names)):
+            # if we found processor name in game requirements string
+            if ast.literal_eval(game[graphics])['processor'].lower().find(processor_names[i].lower()) != -1:
+                max_coincidence = 1.0
+                max_index = i
+                break
 
-        # getting percentage of coincidence
-        tmp = SequenceMatcher(lambda x: x == " ", ast.literal_eval(game[graphics])['processor'].lower(),
-                              processor_names[i].lower()).ratio()
-        if max_coincidence < tmp:
-            max_index = i
-            max_coincidence = tmp
-    ideal_processor = processor_names[max_index]
+            # getting percentage of coincidence
+            tmp = SequenceMatcher(lambda x: x == " ", ast.literal_eval(game[graphics])['processor'].lower(),
+                                  processor_names[i].lower()).ratio()
+            if max_coincidence < tmp:
+                max_index = i
+                max_coincidence = tmp
+        ideal_processor = processor_names[max_index]
 
-    max_coincidence = -1.0
-    max_index = -1
-    for i in range(len(videocard_names)):
-        # if we found videocard name in game requirements string
-        if ast.literal_eval(game[graphics])['graphics'].lower().find(videocard_names[i].lower()) != -1:
-            max_coincidence = 1.0
-            max_index = i
-            break
+        max_coincidence = -1.0
+        max_index = -1
+        for i in range(len(videocard_names)):
+            # if we found videocard name in game requirements string
+            if ast.literal_eval(game[graphics])['graphics'].lower().find(videocard_names[i].lower()) != -1:
+                max_coincidence = 1.0
+                max_index = i
+                break
 
-        # getting percentage of coincidence
-        tmp = SequenceMatcher(lambda x: x == " ", ast.literal_eval(game[graphics])['graphics'].lower(),
-                              videocard_names[i].lower()).ratio()
-        if max_coincidence < tmp:
-            max_index = i
-            max_coincidence = tmp
-    ideal_videocard = videocard_names[max_index]
+            # getting percentage of coincidence
+            tmp = SequenceMatcher(lambda x: x == " ", ast.literal_eval(game[graphics])['graphics'].lower(),
+                                  videocard_names[i].lower()).ratio()
+            if max_coincidence < tmp:
+                max_index = i
+                max_coincidence = tmp
+        ideal_videocard = videocard_names[max_index]
 
-    # getting benchmark of assembly asked in the requirements
-    ideal_assembly_rating = float(videocards.iloc[list(videocards['Name']).index(ideal_videocard)]['Rating']) + float(
-        processors.iloc[list(processors['name']).index(ideal_processor)]['rating'])
+        # getting benchmark of assembly asked in the requirements
+        ideal_assembly_rating = float(
+            videocards.iloc[list(videocards['Name']).index(ideal_videocard)]['Rating']) + float(
+            processors.iloc[list(processors['name']).index(ideal_processor)]['rating'])
 
-    # getting assembly (available at the shop) closest ideal one
-    min_difference = max(list(assemblies['rating']))
-    ans_assembly_index = -1
-    for i in range(len(assemblies)):
-        if 0 <= (assemblies.iloc[i]['rating'] - ideal_assembly_rating) < min_difference \
-                and videocards.iloc[list(videocards['Name']).index(assemblies.iloc[i]['graphics'])]['Rating'] > \
-                videocards.iloc[list(videocards['Name']).index(ideal_videocard)]['Rating'] \
-                and processors.iloc[list(processors['name']).index(assemblies.iloc[i]['processor'])]['rating'] > \
-                processors.iloc[list(processors['name']).index(ideal_processor)]['rating']:
-            min_difference = assemblies.iloc[i]['rating'] - ideal_assembly_rating
-            ans_assembly_index = i
+        # getting assembly (available at the shop) closest ideal one
+        min_difference = max(list(assemblies['rating']))
+        ans_assembly_index = -1
+        for i in range(len(assemblies)):
+            if 0 <= (assemblies.iloc[i]['rating'] - ideal_assembly_rating) < min_difference \
+                    and videocards.iloc[list(videocards['Name']).index(assemblies.iloc[i]['graphics'])]['Rating'] > \
+                    videocards.iloc[list(videocards['Name']).index(ideal_videocard)]['Rating'] \
+                    and processors.iloc[list(processors['name']).index(assemblies.iloc[i]['processor'])]['rating'] > \
+                    processors.iloc[list(processors['name']).index(ideal_processor)]['rating']:
+                min_difference = assemblies.iloc[i]['rating'] - ideal_assembly_rating
+                ans_assembly_index = i
 
-    return assemblies.iloc[ans_assembly_index]
+        if price - int(assemblies.iloc[ans_assembly_index]['price']) > 20000:
+            return get_assembly_by_price(price)
+        return assemblies.iloc[ans_assembly_index]
 
 
 def search_similar_names(names: np.array, given_name: str) -> dict:
